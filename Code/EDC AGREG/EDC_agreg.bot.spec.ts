@@ -4,6 +4,19 @@ import * as fs from 'fs';
 // @ts-ignore - csv-parse v5 sync API
 import { parse } from 'csv-parse/sync';
 
+// --- Načítanie .env (ak existuje) do process.env – bez externej závislosti. ---
+// Prihlasovacie údaje daj do súboru .env (OKTE_USER, OKTE_PASSWORD). .env do gitu NEPATRÍ.
+(() => {
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    if (!fs.existsSync(envPath)) return;
+    for (const line of fs.readFileSync(envPath, 'utf-8').split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    }
+  } catch { /* ignor */ }
+})();
+
 /**
  * ============================================================================
  * EDC – AGREGÁCIA FLEXIBILITY (hromadný zápis z CSV do ZMENY ZMLUVY)
@@ -52,8 +65,8 @@ const CONFIG = {
     zmluvaUrl: 'https://edc.okte.sk/portal/ui/zmluva/zalozenie-zmluvy',
     // Priama URL zoznamu zmlúv (Vyhľadanie zmlúv) – obchádza krehké klikanie v strome menu.
     mojeZmluvyUrl: 'https://edc.okte.sk/portal/ui/zmluva/vyhladanie',
-    username: process.env.OKTE_USER || 'martin.gonda@wattiva.eu',
-    password: process.env.OKTE_PASSWORD || 'VoltiaTechno2026/',
+    username: process.env.OKTE_USER || '',      // nastav v .env (OKTE_USER)
+    password: process.env.OKTE_PASSWORD || '',  // nastav v .env (OKTE_PASSWORD)
     subjekt: 'Voltia Technologies s.r.o.',
     // Zmluvu identifikujeme PRIMÁRNE podľa ČÍSLA (unikátne), s fallbackom na názov.
     cisloZmluvy: '2026-15-5942',
@@ -772,8 +785,13 @@ async function spracujDavku(page: Page, blok: string, riadky: ZakaznikFlexibilit
 /* ================================ TEST ================================ */
 
 test('Agregácia flexibility – hromadný zápis z CSV (jedna Zmena zmluvy)', async ({ page }) => {
-  test.setTimeout(0); // Zmenené na 0 (žiadny časový limit pre skript)
+  test.setTimeout(0); // Odstránený časovač celého skriptu
   page.on('dialog', d => d.accept().catch(() => {})); // natívne prompty (napr. "opustiť stránku?")
+
+  // Prihlasovacie údaje sa čítajú z .env / premenných prostredia (nie z kódu).
+  if (!CONFIG.okte.username || !CONFIG.okte.password) {
+    throw new Error('Chýbajú OKTE prihlasovacie údaje. Vytvor súbor .env s OKTE_USER a OKTE_PASSWORD (pozri .env.example) alebo ich nastav cez $env:. Súbor .env do gitu NEDÁVAJ.');
+  }
 
   const outDir = path.join(process.cwd(), 'reports');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });

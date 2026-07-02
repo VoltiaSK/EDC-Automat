@@ -5,6 +5,20 @@ import { PDFDocument } from 'pdf-lib';
 // @ts-ignore - pdf-parse v1 nemá typy; import cez lib (bez test kódu v index.js)
 import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
+// --- Načítanie .env (ak existuje) do process.env – bez externej závislosti. ---
+// Prihlasovacie údaje daj do .env (OKTE_USER, OKTE_PASSWORD, DS_EMAIL, DS_PASSWORD).
+// Súbor .env do gitu NEPATRÍ.
+(() => {
+  try {
+    const envPath = path.join(process.cwd(), '.env');
+    if (!fs.existsSync(envPath)) return;
+    for (const line of fs.readFileSync(envPath, 'utf-8').split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    }
+  } catch { /* ignor */ }
+})();
+
 /**
  * Perzistentný Chrome profil – kľúč k tomu, aby popup "Prístup k iným aplikáciám"
  * neotravoval každý beh. Pri PRVOM spustení klikneš Povoliť raz; profil si to zapamätá
@@ -32,7 +46,7 @@ const test = base.extend<{ context: BrowserContext; page: Page }>({
 /**
  * KONFIGURÁCIA
  * OKTE = 4-krokový wizard (participant-create-simple): Účastník trhu, Zmluvné údaje,
- * Výrobné zariadenie (EIC), Kontrola. Heslo k OKTE: CONFIG.okte.password.
+ * Výrobné zariadenie (EIC), Kontrola. Prihlasovacie údaje sa čítajú z .env (nie z kódu).
  * Certifikát (neexportovateľný, na tokene) vyberá Windows policy AutoSelectCertificateForUrls
  * + reálny Chrome (channel: 'chrome'). Prihlásenie do OKTE preto nerieši .pfx.
  */
@@ -46,14 +60,14 @@ const CONFIG = {
   docuseal: {
     loginUrl: 'https://sign.wattiva.eu/sign_in',
     submissionsUrl: 'https://sign.wattiva.eu/submissions',
-    email: process.env.DS_EMAIL || 'agreements@wattiva.com',
-    password: process.env.DS_PASSWORD || '5BBv91aKay5uRv',
+    email: process.env.DS_EMAIL || '',       // nastav v .env (DS_EMAIL)
+    password: process.env.DS_PASSWORD || '', // nastav v .env (DS_PASSWORD)
   },
   okte: {
     publicUrl: 'https://edc.okte.sk/portal/ui/public',
     zmluvaUrl: 'https://edc.okte.sk/portal/ui/zmluva/zalozenie-zmluvy',
-    username: process.env.OKTE_USER || 'martin.gonda@wattiva.eu',
-    password: process.env.OKTE_PASSWORD || 'VoltiaTechno2026/',
+    username: process.env.OKTE_USER || '',      // nastav v .env (OKTE_USER)
+    password: process.env.OKTE_PASSWORD || '',  // nastav v .env (OKTE_PASSWORD)
     subjekt: 'Voltia Technologies s.r.o.',
   },
   // Kontakt 1 = firemný (Martin Gonda). Kontakt 2 = údaje výrobcu.
@@ -406,11 +420,10 @@ async function zistiKrok(page: Page): Promise<number> {
   return 0;
 }
 
-/** Necháva prehliadač OTVORENÝ na kontrolu, ručne vypínané (timeout 0) */
+/** Necháva prehliadač OTVORENÝ na kontrolu, kým ho user nezavrie (timeout 0 = žiadny časovač). */
 async function nechajOtvorene(page: Page) {
   if (!KEEP_OPEN || page.isClosed()) return;
   console.log('\nPrehliadač nechávam OTVORENÝ na kontrolu. Zavri ho ručne krížikom, keď budeš chcieť (žiadny časovač).');
-  // timeout: 0 znamená nekonečno - bude čakať kým používateľ ručne nezavrie prehliadač
   await page.waitForEvent('close', { timeout: 0 }).catch(() => {});
 }
 
@@ -577,10 +590,20 @@ async function klikniPrvyDatum(page: Page, hintid: string, outDir: string): Prom
 /* ================================ TEST ================================ */
 
 test('Hromadná E2E automatizácia: DocuSeal -> UAT EDC OKTE', async ({ page }) => {
-  // Zmenené na 0 – test nezlyhá na globálny časovač a počká koľko treba
-  test.setTimeout(0); 
+  test.setTimeout(0); // Odstránený časovač celého skriptu
 
   page.on('dialog', d => d.accept().catch(() => {}));
+
+  // Prihlasovacie údaje sa čítajú z .env / premenných prostredia (nie z kódu).
+  const chybajuce = [
+    !CONFIG.okte.username && 'OKTE_USER',
+    !CONFIG.okte.password && 'OKTE_PASSWORD',
+    !CONFIG.docuseal.email && 'DS_EMAIL',
+    !CONFIG.docuseal.password && 'DS_PASSWORD',
+  ].filter(Boolean);
+  if (chybajuce.length) {
+    throw new Error(`Chýbajú prihlasovacie údaje (${chybajuce.join(', ')}). Vytvor súbor .env (pozri .env.example) alebo ich nastav cez $env:. Súbor .env do gitu NEDÁVAJ.`);
+  }
 
   const downloadsDir = path.join(process.cwd(), 'downloads');
   const printDir = path.join(downloadsDir, 'print');
