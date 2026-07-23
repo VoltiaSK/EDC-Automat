@@ -156,10 +156,15 @@ python3 correct_eic.py \
   --output corrected/
 
 # 3) Nezavisla validacia vysledku pred odovzdanim
+# --csv je volitelny, ale dolezity: bez neho kontrola 3 iba potvrdi, ze vystup
+# je konzistentny s tym, co tvrdi samotny report z correct_eic.py - nezachyti
+# chybu v samotnom vyhladavani. S --csv sa mapovanie znovu nacita nezavisle a
+# porovna s reportom, takze chyba vo vyhladavani/prepise sa uz naozaj odhali.
 python3 validate_eic_correction.py \
   --report reports/eic-correction-report-<timestamp>.json \
   --originals downloads/ \
-  --corrected corrected/
+  --corrected corrected/ \
+  --csv locations_export.csv
 ```
 
 `--dry-run` sa da nastavit aj cez `DRY_RUN=1` v prostredi — rovnaky konvencny

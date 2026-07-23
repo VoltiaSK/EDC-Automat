@@ -172,6 +172,15 @@ def correct_pdf(src_path, lookup, output_dir, dry_run=False):
         all_candidates = set()
         for page in doc:
             all_candidates.update(find_candidate_ids(page.get_text()))
+            # Also seed from widget field values directly: page.get_text() reads
+            # the content stream, not AcroForm appearance streams, so a wrong id
+            # living ONLY inside a widget (no flattened-text echo) would
+            # otherwise never be found at all, and the file would be silently
+            # reported "unaffected" even though it's wrong.
+            for widget in (page.widgets() or []):
+                fv = widget.field_value
+                if isinstance(fv, str):
+                    all_candidates.update(find_candidate_ids(fv))
 
         if not all_candidates:
             return result
@@ -202,6 +211,10 @@ def correct_pdf(src_path, lookup, output_dir, dry_run=False):
                 result["corrected"][cand] = correct
                 if widget is not None:
                     page_widget_reps.append((widget, cand, correct))
+                    # "widget" always wins across pages/occurrences: it's the
+                    # stricter classification (the validator relies on it to
+                    # decide whether its text-diff check applies), so a later
+                    # page's plain-text occurrence must never downgrade it.
                     result["paths"][cand] = "widget"
                     # A widget value can ALSO be echoed as flattened text; redact
                     # any such text rects that don't sit on the widget itself.
@@ -211,7 +224,7 @@ def correct_pdf(src_path, lookup, output_dir, dry_run=False):
                 else:
                     for r in rects:
                         page_text_reps.append((r, correct, _span_size_at(text_dict, r)))
-                    result["paths"][cand] = "text"
+                    result["paths"].setdefault(cand, "text")
             if page_text_reps:
                 text_reps_by_page.append((pno, page_text_reps))
             if page_widget_reps:
@@ -237,7 +250,13 @@ def correct_pdf(src_path, lookup, output_dir, dry_run=False):
             for pno, page_reps in widget_reps_by_page:
                 for widget, cand, correct in page_reps:
                     fv = widget.field_value if isinstance(widget.field_value, str) else ""
-                    widget.field_value = fv.replace(cand, correct) if cand.lower() in fv.lower() else correct
+                    # _find_overlapping_widget matched `cand` case-insensitively,
+                    # so the replace must be too - a plain str.replace() here
+                    # would silently no-op on a case mismatch (e.g. the field
+                    # value stores the hex id uppercased) while the file still
+                    # gets reported "corrected".
+                    pattern = re.compile(re.escape(cand), re.IGNORECASE)
+                    widget.field_value = pattern.sub(correct, fv) if pattern.search(fv) else correct
                     widget.update()
 
             output_dir.mkdir(parents=True, exist_ok=True)
