@@ -2,6 +2,14 @@
 
 Hromadná E2E automatizácia (Playwright \+ TypeScript), ktorá z **DocuSealu** pozbiera podpísané dokumenty výrobcov, stiahne kompletné trojice, vytiahne údaje z PDF a **zaregistruje výrobcov FVE do 11 kW** do portálu **OKTE EDC** cez 4-krokový wizard.
 
+## Obsah repozitára
+
+| Priečinok | Nástroj | Účel |
+| :---- | :---- | :---- |
+| `Code/EDC ZPÚ/` | `EDC_bot.spec.ts` | DocuSeal → OKTE EDC registrácia výrobcov (viď nižšie). |
+| `Code/EDC AGREG/` | `EDC_agreg.bot.spec.ts` | Hromadné vkladanie agregácie flexibility do OKTE EDC (viď nižšie). |
+| `Code/EIC Korekcia/` | `correct_eic.py` \+ `validate_eic_correction.py` | Opravuje uz podpísané PDF, v ktorých sa namiesto reálneho EIC kódu omylom zobrazuje interné Mongo `_id` (backend bug pred opravou) — bez týchto opráv `EDC_bot.spec.ts` na daných súboroch zlyhá/preskočí krok s EIC. Pozri `Code/EIC Korekcia/README.md`. |
+
 ---
 
 ## 1\. Čo to robí (v skratke)

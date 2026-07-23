@@ -7,6 +7,7 @@
 # --- OSOBNÉ ÚDAJE – NEVERZIONOVAŤ (mená a EIC reálnych osôb) ---
 *.csv
 !*.example.csv
+*.pdf
 
 # --- Výstupy a diagnostika ---
 reports/
