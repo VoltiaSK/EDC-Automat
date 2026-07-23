@@ -658,6 +658,7 @@ test('Hromadná E2E automatizácia: DocuSeal -> UAT EDC OKTE', async ({ page }) 
     if (ok) {
       naZapis.push(clovek);
     } else {
+      console.warn(`  ⚠️ PRESKOČENÝ ${clovek.meno}: ${dovody.join('; ')}`);
       report.push({ meno: clovek.meno, stav: 'PRESKOČENÝ', dovod: dovody.join('; ') });
     }
   }
@@ -704,6 +705,15 @@ test('Hromadná E2E automatizácia: DocuSeal -> UAT EDC OKTE', async ({ page }) 
     if (page.isClosed()) break;
     
     await extrahujPdf(clovek, outDir); 
+
+    // --- TVRDÁ KONTROLA EIC ---
+    if (!clovek.pdf?.eicOdber || !clovek.pdf.eicOdber.startsWith('24')) {
+      console.warn(`  ⚠️ PRESKOČENÝ ${clovek.meno}: Nenašiel sa platný EIC kód (začínajúci na 24). Extrahované bolo: "${clovek.pdf?.eicOdber || ''}"`);
+      report.push({ meno: clovek.meno, stav: 'PRESKOČENÝ', dovod: 'neplatné alebo chýbajúce EIC v PDF (nezačína na 24)' });
+      continue; 
+    }
+    // --------------------------
+
     const { meno, priezvisko } = clovek.parsedMeno!;
     const { ulica, supisneCislo, orientacneCislo, psc, mesto } = clovek.parsedAdresa!;
 

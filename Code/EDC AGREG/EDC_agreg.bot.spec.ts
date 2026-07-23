@@ -557,8 +557,21 @@ function nacitajCsv(cesta: string, blok: string, report: ZaznamReportu[]): Zakaz
   for (const r of raw) {
     const meno = (r.meno || '').trim();
     const eic = (r.eic || '').trim().toUpperCase();
-    if (!meno) { report.push({ blok, meno: '(prázdne)', eic, stav: 'PRESKOČENÝ', dovod: 'chýba meno' }); continue; }
-    if (!eic) { report.push({ blok, meno, eic: '', stav: 'PRESKOČENÝ', dovod: 'chýba EIC' }); continue; }
+    if (!meno) { 
+      console.warn(`  ⚠️ PRESKOČENÝ (prázdne meno): chýba meno pre EIC ${eic}`);
+      report.push({ blok, meno: '(prázdne)', eic, stav: 'PRESKOČENÝ', dovod: 'chýba meno' }); 
+      continue; 
+    }
+    if (!eic) { 
+      console.warn(`  ⚠️ PRESKOČENÝ ${meno}: chýba EIC kód`);
+      report.push({ blok, meno, eic: '', stav: 'PRESKOČENÝ', dovod: 'chýba EIC' }); 
+      continue; 
+    }
+    if (!eic.startsWith('24')) { 
+      console.warn(`  ⚠️ PRESKOČENÝ ${meno}: neplatné EIC (${eic} nezačína na 24)`);
+      report.push({ blok, meno, eic, stav: 'PRESKOČENÝ', dovod: 'neplatné EIC (nezačína na 24)' }); 
+      continue; 
+    }
     out.push({ meno, eic });
   }
   return out;
@@ -602,7 +615,11 @@ async function spracujDavku(page: Page, blok: string, riadky: ZakaznikFlexibilit
   for (const { meno, eic } of riadky) {
     if (!skupiny.has(meno)) skupiny.set(meno, []);
     const arr = skupiny.get(meno)!;
-    if (arr.includes(eic)) { report.push({ blok, meno, eic, stav: 'PRESKOČENÝ', dovod: 'duplicitný riadok v CSV' }); continue; }
+    if (arr.includes(eic)) { 
+      console.warn(`  ⚠️ PRESKOČENÝ ${meno}: duplicitný riadok v CSV pre EIC ${eic}`);
+      report.push({ blok, meno, eic, stav: 'PRESKOČENÝ', dovod: 'duplicitný riadok v CSV' }); 
+      continue; 
+    }
     arr.push(eic);
   }
 

@@ -1,0 +1,20 @@
+# --- Prihlasovacie údaje (NIKDY do gitu) ---
+.env
+
+# --- Perzistentný profil prehliadača (obsahuje session/certifikát) ---
+.chrome-profile-okte/
+
+# --- OSOBNÉ ÚDAJE – NEVERZIONOVAŤ (mená a EIC reálnych osôb) ---
+*.csv
+!*.example.csv
+
+# --- Výstupy a diagnostika ---
+reports/
+downloads/
+test-results/
+playwright-report/
+*.log
+run.log
+
+# --- Node / Playwright ---
+node_modules/
